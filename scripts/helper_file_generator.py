@@ -92,14 +92,14 @@ class HelperFileOutputGenerator(OutputGenerator):
         self.enum_output = ''                             # string built up of enum string routines
         # Internal state - accumulators for different inner block text
         self.structNames = []                             # List of Vulkan struct typenames
-        self.structTypes = dict()                         # Map of Vulkan struct typename to required VkStructureType
+        self.structTypes = {}
         self.structMembers = []                           # List of StructMemberData records for all Vulkan structs
         self.object_types = []                            # List of all handle types
         self.object_type_aliases = []                     # Aliases to handles types (for handles that were extensions)
         self.debug_report_object_types = []               # Handy copy of debug_report_object_type enum data
         self.core_object_types = []                       # Handy copy of core_object_type enum data
-        self.device_extension_info = dict()               # Dict of device extension name defines and ifdef values
-        self.instance_extension_info = dict()             # Dict of instance extension name defines and ifdef values
+        self.device_extension_info = {}
+        self.instance_extension_info = {}
 
         # Named tuples to store struct and command data
         self.StructType = namedtuple('StructType', ['name', 'value'])
@@ -121,13 +121,12 @@ class HelperFileOutputGenerator(OutputGenerator):
         # User-supplied prefix text, if any (list of strings)
         self.helper_file_type = genOpts.helper_file_type
         self.library_name = genOpts.library_name
-        # File Comment
-        file_comment = '// *** THIS FILE IS GENERATED - DO NOT EDIT ***\n'
-        file_comment += '// See helper_file_generator.py for modifications\n'
+        file_comment = (
+            '// *** THIS FILE IS GENERATED - DO NOT EDIT ***\n'
+            + '// See helper_file_generator.py for modifications\n'
+        )
         write(file_comment, file=self.outFile)
-        # Copyright Notice
-        copyright = ''
-        copyright += '\n'
+        copyright = '' + '\n'
         copyright += '/***************************************************************************\n'
         copyright += ' *\n'
         copyright += ' * Copyright (c) 2015-2017 The Khronos Group Inc.\n'
@@ -181,10 +180,7 @@ class HelperFileOutputGenerator(OutputGenerator):
         if 'EXTENSION_NAME' not in name_define:
             print("Error in vk.xml file -- extension name is not available")
         requires = interface.get('requires')
-        if requires is not None:
-            required_extensions = requires.split(',')
-        else:
-            required_extensions = list()
+        required_extensions = requires.split(',') if requires is not None else []
         info = { 'define': name_define, 'ifdef':self.featureExtraProtect, 'reqs':required_extensions }
         if interface.get('type') == 'instance':
             self.instance_extension_info[name] = info
@@ -203,10 +199,12 @@ class HelperFileOutputGenerator(OutputGenerator):
         groupElem = groupinfo.elem
         # For enum_string_header
         if self.helper_file_type == 'enum_string_header':
-            value_set = set()
-            for elem in groupElem.findall('enum'):
-                if elem.get('supported') != 'disabled' and elem.get('alias') is None:
-                    value_set.add(elem.get('name'))
+            value_set = {
+                elem.get('name')
+                for elem in groupElem.findall('enum')
+                if elem.get('supported') != 'disabled'
+                and elem.get('alias') is None
+            }
             self.enum_output += self.GenerateEnumStringConversion(groupName, value_set)
         elif self.helper_file_type == 'object_types_header':
             if groupName == 'VkDebugReportObjectTypeEXT':
@@ -233,7 +231,7 @@ class HelperFileOutputGenerator(OutputGenerator):
                 self.object_type_aliases.append((name,alias))
             else:
                 self.object_types.append(name)
-        elif (category == 'struct' or category == 'union'):
+        elif category in ['struct', 'union']:
             self.structNames.append(name)
             self.genStruct(typeinfo, name, alias)
     #
@@ -248,19 +246,19 @@ class HelperFileOutputGenerator(OutputGenerator):
     #
     # Check if the parameter passed in is a pointer
     def paramIsPointer(self, param):
-        ispointer = False
-        for elem in param:
-            if ((elem.tag != 'type') and (elem.tail is not None)) and '*' in elem.tail:
-                ispointer = True
-        return ispointer
+        return any(
+            ((elem.tag != 'type') and (elem.tail is not None)) and '*' in elem.tail
+            for elem in param
+        )
     #
     # Check if the parameter passed in is a static array
     def paramIsStaticArray(self, param):
-        isstaticarray = 0
         paramname = param.find('name')
-        if (paramname.tail is not None) and ('[' in paramname.tail):
-            isstaticarray = paramname.tail.count('[')
-        return isstaticarray
+        return (
+            paramname.tail.count('[')
+            if (paramname.tail is not None) and ('[' in paramname.tail)
+            else 0
+        )
     #
     # Retrieve the type and name for a parameter
     def getTypeNameTuple(self, param):
@@ -281,10 +279,7 @@ class HelperFileOutputGenerator(OutputGenerator):
             # For string arrays, 'len' can look like 'count,null-terminated', indicating that we
             # have a null terminated array of strings.  We strip the null-terminated from the
             # 'len' field and only return the parameter specifying the string count
-            if 'null-terminated' in len:
-                result = len.split(',')[0]
-            else:
-                result = len
+            result = len.split(',')[0] if 'null-terminated' in len else len
             if 'altlen' in param.attrib:
                 # Elements with latexmath 'len' also contain a C equivalent 'altlen' attribute
                 # Use indexing operator instead of get() so we fail if the attribute is missing
@@ -300,7 +295,9 @@ class HelperFileOutputGenerator(OutputGenerator):
             type_key = 'VK_DEFINE_HANDLE'
         else:
             type_key = 'VK_DEFINE_NON_DISPATCHABLE_HANDLE'
-        handle = self.registry.tree.find("types/type/[name='" + handle_type + "'][@category='handle']")
+        handle = self.registry.tree.find(
+            f"types/type/[name='{handle_type}'][@category='handle']"
+        )
         if handle is not None and handle.find('type').text == type_key:
             return True
         # if handle_type is a struct, search its members
@@ -308,7 +305,9 @@ class HelperFileOutputGenerator(OutputGenerator):
             member_index = next((i for i, v in enumerate(self.structMembers) if v[0] == handle_type), None)
             if member_index is not None:
                 for item in self.structMembers[member_index].members:
-                    handle = self.registry.tree.find("types/type/[name='" + item.type + "'][@category='handle']")
+                    handle = self.registry.tree.find(
+                        f"types/type/[name='{item.type}'][@category='handle']"
+                    )
                     if handle is not None and handle.find('type').text == type_key:
                         return True
         return False
@@ -336,24 +335,29 @@ class HelperFileOutputGenerator(OutputGenerator):
                 # Extract the required struct type value from the comments
                 # embedded in the original text defining the 'typeinfo' element
                 rawXml = etree.tostring(typeinfo.elem).decode('ascii')
-                result = re.search(r'VK_STRUCTURE_TYPE_\w+', rawXml)
-                if result:
-                    value = result.group(0)
+                if result := re.search(r'VK_STRUCTURE_TYPE_\w+', rawXml):
+                    value = result[0]
                 else:
                     value = self.genVkStructureType(typeName)
                 # Store the required type value
                 self.structTypes[typeName] = self.StructType(name=name, value=value)
             # Store pointer/array/string info
             isstaticarray = self.paramIsStaticArray(member)
-            membersInfo.append(self.CommandParam(type=type,
-                                                 name=name,
-                                                 ispointer=self.paramIsPointer(member),
-                                                 isstaticarray=isstaticarray,
-                                                 isconst=True if 'const' in cdecl else False,
-                                                 iscount=True if name in lens else False,
-                                                 len=self.getLen(member),
-                                                 extstructs=self.registry.validextensionstructs[typeName] if name == 'pNext' else None,
-                                                 cdecl=cdecl))
+            membersInfo.append(
+                self.CommandParam(
+                    type=type,
+                    name=name,
+                    ispointer=self.paramIsPointer(member),
+                    isstaticarray=isstaticarray,
+                    isconst='const' in cdecl,
+                    iscount=name in lens,
+                    len=self.getLen(member),
+                    extstructs=self.registry.validextensionstructs[typeName]
+                    if name == 'pNext'
+                    else None,
+                    cdecl=cdecl,
+                )
+            )
         self.structMembers.append(self.StructMemberData(name=typeName, members=membersInfo, ifdef_protect=self.featureExtraProtect))
     #
     # Enum_string_header: Create a routine to convert an enumerated value into a string
@@ -374,8 +378,7 @@ class HelperFileOutputGenerator(OutputGenerator):
     #
     # Combine object types helper header file preamble with body text and return
     def GenerateObjectTypesHelperHeader(self):
-        object_types_helper_header = '\n'
-        object_types_helper_header += '#pragma once\n'
+        object_types_helper_header = '\n' + '#pragma once\n'
         object_types_helper_header += '\n'
         object_types_helper_header += '#include <vulkan/vulkan.h>\n\n'
         object_types_helper_header += self.GenerateObjectTypesHeader()
@@ -394,9 +397,9 @@ class HelperFileOutputGenerator(OutputGenerator):
         # Output enum definition as each handle is processed, saving the names to use for the conversion routine
         for item in self.object_types:
             fixup_name = item[2:]
-            enum_entry = 'kVulkanObjectType%s' % fixup_name
+            enum_entry = f'kVulkanObjectType{fixup_name}'
             enum_entry_map[item] = enum_entry
-            object_types_header += '    ' + enum_entry
+            object_types_header += f'    {enum_entry}'
             object_types_header += ' = %d,\n' % enum_num
             enum_num += 1
             type_list.append(enum_entry)
@@ -417,7 +420,8 @@ class HelperFileOutputGenerator(OutputGenerator):
         object_types_header += '};\n'
 
         # Key creation helper for map comprehensions that convert between k<Name> and VK<Name> symbols
-        def to_key(regex, raw_key): return re.search(regex, raw_key).group(1).lower().replace("_","")
+        def to_key(regex, raw_key):
+            return re.search(regex, raw_key)[1].lower().replace("_", "")
 
         # Output a conversion routine from the layer object definitions to the debug report definitions
         # As the VK_DEBUG_REPORT types are not being updated, specify UNKNOWN for unmatched types
@@ -497,4 +501,4 @@ class HelperFileOutputGenerator(OutputGenerator):
         if self.helper_file_type == 'object_types_header':
             return self.GenerateObjectTypesHelperHeader()
         else:
-            return 'Bad Helper File Generator Option %s' % self.helper_file_type
+            return f'Bad Helper File Generator Option {self.helper_file_type}'

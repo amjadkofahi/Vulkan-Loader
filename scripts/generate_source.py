@@ -70,7 +70,7 @@ def main(argv):
                                   stdout=subprocess.DEVNULL,
                                   cwd=gen_dir)
         except Exception as e:
-            print('ERROR:', str(e))
+            print('ERROR:', e)
             return 1
 
     # optional post-generation steps
@@ -122,7 +122,9 @@ def main(argv):
         rc_ver = ', '.join(args.generated_version.split('.') + ['0'])
         rc_file_contents = rc_file_contents.replace('${LOADER_VER_FILE_VERSION}', f'{rc_ver}')
         rc_file_contents = rc_file_contents.replace('${LOADER_VER_FILE_DESCRIPTION_STR}', f'"{args.generated_version}.Dev Build"')
-        rc_file_contents = rc_file_contents.replace('${LOADER_VER_FILE_VERSION_STR}', f'"Vulkan Loader - Dev Build"')
+        rc_file_contents = rc_file_contents.replace(
+            '${LOADER_VER_FILE_VERSION_STR}', '"Vulkan Loader - Dev Build"'
+        )
         rc_file_contents = rc_file_contents.replace('${LOADER_CUR_COPYRIGHT_YEAR}', f'{datetime.date.today().year}')
         with open(common_codegen.repo_relative('loader/loader.rc'), "w") as rc_file_out:
             rc_file_out.write(rc_file_contents)

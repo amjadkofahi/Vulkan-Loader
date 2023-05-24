@@ -67,10 +67,7 @@ platform_dict = {
 def GetFeatureProtect(interface):
     """Get platform protection string"""
     platform = interface.get('platform')
-    protect = None
-    if platform is not None:
-        protect = platform_dict[platform]
-    return protect
+    return platform_dict[platform] if platform is not None else None
 
 # helper to define paths relative to the repo root
 def repo_relative(path):

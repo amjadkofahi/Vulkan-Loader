@@ -359,7 +359,8 @@ if __name__ == '__main__':
     from loader_extension_generator import LoaderExtensionOutputGenerator, LoaderExtensionGeneratorOptions
 
     # Temporary workaround for vkconventions python2 compatibility
-    import abc; abc.ABC = abc.ABCMeta('ABC', (object,), {})
+    import abc
+    abc.ABC = abc.ABCMeta('ABC', (object,), {})
     from vkconventions import VulkanConventions
 
     # This splits arguments which are space-separated lists
@@ -372,11 +373,7 @@ if __name__ == '__main__':
     else:
         errWarn = sys.stderr
 
-    if args.diagfile:
-        diag = open(args.diagfile, 'w', encoding='utf-8')
-    else:
-        diag = None
-
+    diag = open(args.diagfile, 'w', encoding='utf-8') if args.diagfile else None
     # Create the API generator & generator options
     (gen, options) = genTarget(args)
 
@@ -402,12 +399,12 @@ if __name__ == '__main__':
         reg.dumpReg(filehandle = open('regdump.txt', 'w', encoding='utf-8'))
 
     # Finally, use the output generator to create the requested targe
-    if (args.debug):
+    if args.debug:
         pdb.run('reg.apiGen()')
     else:
         startTimer(args.time)
         reg.apiGen()
-        endTimer(args.time, '* Time to generate ' + options.filename + ' =')
+        endTimer(args.time, f'* Time to generate {options.filename} =')
 
     if not args.quiet:
         write('* Generated', options.filename, file=sys.stderr)
