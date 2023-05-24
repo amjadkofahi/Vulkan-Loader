@@ -63,36 +63,34 @@ except IOError:
     sys.exit(1)
 
 with open(destination_file, "w", encoding="utf-8") as dest:
-    if assembler_type == "MASM":
+    if assembler_type == "GAS":
+        # let the assembler know which platform to use
+        if arch == "aarch64":
+            dest.write(".set AARCH_64, 1\n")
+        elif arch == "x86_64":
+            dest.write(".set X86_64, 1\n")
+    elif assembler_type == "MASM":
         # special case vulkan error bit due to it not appearing in the asm - its defined in the header as 8 so it shouldn't change
         dest.write("VULKAN_LOADER_ERROR_BIT equ 8;\n")
-    elif assembler_type == "GAS":
-        # let the assembler know which platform to use
-        if arch == "x86_64":
-            dest.write(".set X86_64, 1\n")
-        elif arch == "aarch64":
-            dest.write(".set AARCH_64, 1\n")
-        # Nothing to write in the x86 case
-
     for d in defines:
         match = None
         if compiler == "MSVC":
             if d == "VULKAN_LOADER_ERROR_BIT":
                 continue # skip due to special case
-            match = re.search(d + " DD [ ]*([0-9a-f]+)H", asm_intermediate_file)
-        elif compiler == "Clang" or compiler == "GNU":
-            match = re.search(d + " = ([0-9]+)", asm_intermediate_file)
+            match = re.search(f"{d} DD [ ]*([0-9a-f]+)H", asm_intermediate_file)
+        elif compiler in ["Clang", "GNU"]:
+            match = re.search(f"{d} = ([0-9]+)", asm_intermediate_file)
 
         if match:
             if compiler == "MSVC":
                 value = str(int(match.group(1), 16))
-            elif compiler == "Clang" or compiler == "GNU":
+            elif compiler in ["Clang", "GNU"]:
                 value = match.group(1)
-            if assembler_type == "MASM":
+            if assembler_type == "GAS":
+                dest.write(f".set {d}, {value}" + "\n")
+            elif assembler_type == "MASM":
             # MASM uses hex values, decode them here
-                dest.write(d + " equ " + value +";\n")
-            elif assembler_type == "GAS":
-                dest.write(".set " + d + ", " + value + "\n")
+                dest.write(f"{d} equ {value}" + ";\n")
         else:
             print("Couldn't find ", d)
             sys.exit(1)

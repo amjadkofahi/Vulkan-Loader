@@ -101,13 +101,12 @@ class DispatchTableHelperOutputGenerator(OutputGenerator):
         if (genOpts.prefixText):
             for s in genOpts.prefixText:
                 write(s, file=self.outFile)
-        # File Comment
-        file_comment = '// *** THIS FILE IS GENERATED - DO NOT EDIT ***\n'
-        file_comment += '// See dispatch_helper_generator.py for modifications\n'
+        file_comment = (
+            '// *** THIS FILE IS GENERATED - DO NOT EDIT ***\n'
+            + '// See dispatch_helper_generator.py for modifications\n'
+        )
         write(file_comment, file=self.outFile)
-        # Copyright Notice
-        copyright =  '/*\n'
-        copyright += ' * Copyright (c) 2015-2021 The Khronos Group Inc.\n'
+        copyright = '/*\n' + ' * Copyright (c) 2015-2021 The Khronos Group Inc.\n'
         copyright += ' * Copyright (c) 2015-2021 Valve Corporation\n'
         copyright += ' * Copyright (c) 2015-2021 LunarG, Inc.\n'
         copyright += ' *\n'
@@ -128,8 +127,7 @@ class DispatchTableHelperOutputGenerator(OutputGenerator):
         copyright += ' * Author: Mark Lobodzinski <mark@lunarg.com>\n'
         copyright += ' */\n'
 
-        preamble = ''
-        preamble += '#include <vulkan/vulkan.h>\n'
+        preamble = '' + '#include <vulkan/vulkan.h>\n'
         preamble += '#include <vulkan/vk_layer.h>\n'
         preamble += '#include <string.h>\n'
         preamble += '#include "loader/generated/vk_layer_dispatch_table.h"\n'
@@ -178,7 +176,9 @@ class DispatchTableHelperOutputGenerator(OutputGenerator):
     #
     # Determine if this API should be ignored or added to the instance or device dispatch table
     def AddCommandToDispatchList(self, name, handle_type, protect, cmdinfo):
-        handle = self.registry.tree.find("types/type/[name='" + handle_type + "'][@category='handle']")
+        handle = self.registry.tree.find(
+            f"types/type/[name='{handle_type}'][@category='handle']"
+        )
         if handle is None:
             return
         if handle_type != 'VkInstance' and handle_type != 'VkPhysicalDevice' and name != 'vkGetInstanceProcAddr':
@@ -190,20 +190,22 @@ class DispatchTableHelperOutputGenerator(OutputGenerator):
                 return_type = cmdinfo.elem.find('proto/type').text
                 return_statement = ""  # default type is void, so no return type
                 try:
-                    return_statement = 'return ' + return_type_table[return_type] + ';'
+                    return_statement = f'return {return_type_table[return_type]};'
                 except KeyError:
                     if return_type != "void":
-                        raise AssertionError("return_type_table does not contain all possible types. Add an entry for `" + return_type + "`.")
+                        raise AssertionError(
+                            f"return_type_table does not contain all possible types. Add an entry for `{return_type}`."
+                        )
                 decl = decl.split('*PFN_vk')[1]
                 decl = decl.replace(')(', '(')
-                decl = 'static VKAPI_ATTR ' + return_type + ' VKAPI_CALL Stub' + decl
+                decl = f'static VKAPI_ATTR {return_type} VKAPI_CALL Stub{decl}'
                 func_body = ' { ' + return_statement + ' }'
                 decl = decl.replace (';', func_body)
                 if self.featureExtraProtect is not None:
-                    self.dev_ext_stub_list.append('#if defined(%s)' % self.featureExtraProtect)
+                    self.dev_ext_stub_list.append(f'#if defined({self.featureExtraProtect})')
                 self.dev_ext_stub_list.append(decl)
                 if self.featureExtraProtect is not None:
-                    self.dev_ext_stub_list.append('#endif // %s' % self.featureExtraProtect)
+                    self.dev_ext_stub_list.append(f'#endif // {self.featureExtraProtect}')
         else:
             self.instance_dispatch_list.append((name, self.featureExtraProtect))
         return
